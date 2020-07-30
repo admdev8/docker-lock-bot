@@ -5,9 +5,21 @@ on:
     branches: [ master ]
 
   schedule:
-  - cron: "*/5 * * * *"
+  - cron: "0 4 * * *"
 
 jobs:
+  devcontainer:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Build devcontainer
+      uses: docker/build-push-action@v1
+      with:
+        dockerfile: ./.devcontainer/Dockerfile
+        tags: latest
+        push: false
+
   lint:
     runs-on: ubuntu-latest
 
