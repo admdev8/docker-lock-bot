@@ -1,5 +1,12 @@
 {
 	"dockerfiles": {
+		".devcontainer/Dockerfile": [
+			{
+				"name": "node",
+				"tag": "lts",
+				"digest": "f0b04f08e276f6c9ed1b369163a098a4b7b71522004b14cebc365c3532a86d21"
+			}
+		],
 		"Dockerfile": [
 			{
 				"name": "node",
