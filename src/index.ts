@@ -6,12 +6,12 @@ import * as child from 'child_process'
 import createScheduler from 'probot-scheduler'
 import { Application, Context } from 'probot' // eslint-disable-line no-unused-vars
 
-const SCHEDULER_INTERVAL_MS = 30 * 1000 // 30 seconds
+const SCHEDULER_INTERVAL_MS: number = +(process.env.SCHEDULER_INTERVAL_MS || 5 * 60 * 1000) // default to 5 minutes
 const SCHEDULER_DELAY = true // when true, random delay between 0 and interval to avoid all schedules being performed at the same time
 
 const PR_BRANCH = 'add-docker-lock' // name of branch created/updated on Github
 
-async function getLatestSHA (context: Context, repo: string, owner: string, defaultBranch: string): Promise<string> {
+async function getLatestSHA(context: Context, repo: string, owner: string, defaultBranch: string): Promise<string> {
   const refs = await context.github.git.listRefs({
     owner: owner,
     repo: repo
@@ -27,51 +27,51 @@ async function getLatestSHA (context: Context, repo: string, owner: string, defa
   return sha
 }
 
-async function createToken (context: Context, app: Application): Promise<string> {
+async function createToken(context: Context, app: Application): Promise<string> {
   // https://github.com/probot/probot/issues/1003
   const auth = await app.auth()
   const resp = await auth.apps.createInstallationToken({ installation_id: context.payload.installation.id })
   return resp.data.token
 }
 
-async function getDefaultBranch (context: Context, repo: string, owner: string): Promise<string> {
+async function getDefaultBranch(context: Context, repo: string, owner: string): Promise<string> {
   const { default_branch } = (await context.github.repos.get({ owner, repo })).data // eslint-disable-line camelcase
   return default_branch // eslint-disable-line camelcase
 }
 
-function getRepo (context: Context): string {
+function getRepo(context: Context): string {
   const { repo } = context.repo()
   return repo
 }
 
-function getOwner (context: Context): string {
+function getOwner(context: Context): string {
   const { owner } = context.repo()
   return owner
 }
 
-async function dockerLock (repo: string, owner: string, token: string, tmpDir: string, defaultBranch: string, prBranch: string, lockfile: string): Promise<string> {
+async function dockerLock(repo: string, owner: string, token: string, tmpDir: string, defaultBranch: string, prBranch: string, lockfile: string): Promise<{ stdout: string, stderr: string }> {
   const exec = util.promisify(child.exec)
-  const { stdout } = await exec(`bash ./docker-lock.sh ${repo} ${owner} ${token} ${tmpDir} ${defaultBranch} ${prBranch} ${lockfile}`)
-  return stdout
+  const { stdout, stderr } = await exec(`bash ./docker-lock.sh ${repo} ${owner} ${token} ${tmpDir} ${defaultBranch} ${prBranch} ${lockfile}`)
+  return { stdout, stderr }
 }
 
-async function createTemporaryDirectory (): Promise<string> {
+async function createTemporaryDirectory(): Promise<string> {
   const mkDir = util.promisify(fs.mkdtemp)
   return await mkDir('tmp-')
 }
 
-async function removeTemporaryDirectory (dir: string) {
+async function removeTemporaryDirectory(dir: string) {
   const rmDir = util.promisify(fs.rmdir)
   await rmDir(dir, { recursive: true })
 }
 
-async function readLockfile (filepath: string): Promise<string> {
+async function readLockfile(filepath: string): Promise<string> {
   const readF = util.promisify(fs.readFile)
   const rawData = await readF(filepath)
   return Buffer.from(rawData).toString('base64')
 }
 
-async function createBranch (context: Context, repo: string, owner: string, prBranch: string, sha: string) {
+async function createBranch(context: Context, repo: string, owner: string, prBranch: string, sha: string) {
   const ref = `refs/heads/${prBranch}`
   await context.github.git.createRef({
     owner: owner,
@@ -81,7 +81,7 @@ async function createBranch (context: Context, repo: string, owner: string, prBr
   })
 }
 
-async function updateBranch (context: Context, repo: string, owner: string, prBranch: string, lockfile: string, lockfileContents: string) {
+async function updateBranch(context: Context, repo: string, owner: string, prBranch: string, lockfile: string, lockfileContents: string) {
   const contents = await context.github.repos.getContents({
     owner: owner,
     repo: repo,
@@ -111,7 +111,7 @@ async function updateBranch (context: Context, repo: string, owner: string, prBr
   })
 }
 
-async function deleteBranch (context: Context, repo: string, owner: string, prBranch: string) {
+async function deleteBranch(context: Context, repo: string, owner: string, prBranch: string) {
   const ref = `heads/${prBranch}`
   await context.github.git.deleteRef({
     owner: owner,
@@ -120,7 +120,7 @@ async function deleteBranch (context: Context, repo: string, owner: string, prBr
   })
 }
 
-async function createPR (context: Context, repo: string, owner: string, defaultBranch: string, prBranch: string) {
+async function createPR(context: Context, repo: string, owner: string, defaultBranch: string, prBranch: string) {
   await context.github.pulls.create({
     owner: owner,
     repo: repo,
@@ -156,10 +156,16 @@ export = (app: Application) => {
       const defaultBranch = await getDefaultBranch(context, repo, owner)
 
       tmpDir = await createTemporaryDirectory()
-      const stdout = await dockerLock(repo, owner, token, tmpDir, defaultBranch, PR_BRANCH, lockfile)
+      const { stdout, stderr } = await dockerLock(repo, owner, token, tmpDir, defaultBranch, PR_BRANCH, lockfile)
 
-      if (stdout === 'false') {
+      if (stdout !== 'true') {
         return
+      }
+
+      // @ts-ignore TS2367
+      if (stdout !== 'true' || stdout !== 'false') {
+        // log any condition except for the expected "true" or "false"
+        app.log(repo, owner, stderr)
       }
 
       const sha = await getLatestSHA(context, repo, owner, defaultBranch)
