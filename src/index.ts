@@ -6,6 +6,8 @@ import * as child from 'child_process'
 import createScheduler from 'probot-scheduler'
 import { Application, Context } from 'probot' // eslint-disable-line no-unused-vars
 
+import { v4 as uuidv4 } from 'uuid'
+
 const SCHEDULER_INTERVAL_MS: number = +(process.env.SCHEDULER_INTERVAL_MS || 5 * 60 * 1000) // default to 5 minutes
 const SCHEDULER_DELAY = true // when true, random delay between 0 and interval to avoid all schedules being performed at the same time
 
@@ -51,8 +53,7 @@ function getOwner(context: Context): string {
 
 async function dockerLock(repo: string, owner: string, token: string, tmpDir: string, defaultBranch: string, prBranch: string, lockfile: string): Promise<{ stdout: string, stderr: string }> {
   const exec = util.promisify(child.exec)
-  const { stdout, stderr } = await exec(`bash ./docker-lock.sh ${repo} ${owner} ${token} ${tmpDir} ${defaultBranch} ${prBranch} ${lockfile}`)
-  return { stdout, stderr }
+  return await exec(`bash ./docker-lock.sh ${repo} ${owner} ${token} ${tmpDir} ${defaultBranch} ${prBranch} ${lockfile}`)
 }
 
 async function createTemporaryDirectory(): Promise<string> {
@@ -146,6 +147,7 @@ export = (app: Application) => {
 
   // https://github.com/probot/scheduler
   app.on('schedule.repository', async (context: Context) => {
+    const traceIdentifier = uuidv4()
     let tmpDir = ''
 
     try {
@@ -156,41 +158,46 @@ export = (app: Application) => {
       const defaultBranch = await getDefaultBranch(context, repo, owner)
 
       tmpDir = await createTemporaryDirectory()
-      const { stdout, stderr } = await dockerLock(repo, owner, token, tmpDir, defaultBranch, PR_BRANCH, lockfile)
-
-      if (stdout !== 'true') {
+      try {
+        const { stdout, stderr } = await dockerLock(repo, owner, token, tmpDir, defaultBranch, PR_BRANCH, lockfile)
+        app.log(traceIdentifier, 'changes necessary:\n', repo, owner, stdout, stderr)
+      } catch (e) {
+        let msg
+        if (e.code === 246) {
+          msg = 'no changes necessary:\n'
+        } else {
+          msg = 'unsuccessful script:\n'
+        }
+        app.log(traceIdentifier, msg, repo, owner, e)
         return
-      }
-
-      // @ts-ignore TS2367
-      if (stdout !== 'true' || stdout !== 'false') {
-        // log any condition except for the expected "true" or "false"
-        app.log(repo, owner, stderr)
       }
 
       const sha = await getLatestSHA(context, repo, owner, defaultBranch)
 
       try {
         await createBranch(context, repo, owner, PR_BRANCH, sha)
+        app.log(traceIdentifier, repo, owner, 'created new branch')
       } catch (e) {
         // branch already exists
-        app.log(repo, owner, e)
+        app.log(traceIdentifier, repo, owner, e)
       }
 
       const lockfileContents = await readLockfile(`./${tmpDir}/${lockfile}`)
       try {
         await updateBranch(context, repo, owner, PR_BRANCH, lockfile, lockfileContents)
+        app.log(traceIdentifier, repo, owner, 'updated branch')
       } catch (e) {
         // malformed data
-        app.log(repo, owner, e)
+        app.log(traceIdentifier, repo, owner, e)
         return
       }
 
       try {
         await createPR(context, repo, owner, defaultBranch, PR_BRANCH)
+        app.log(traceIdentifier, repo, owner, 'created PR')
       } catch (e) {
         // PR already exists
-        app.log(repo, owner, e)
+        app.log(traceIdentifier, repo, owner, e)
       }
     } finally {
       if (tmpDir !== '') {
