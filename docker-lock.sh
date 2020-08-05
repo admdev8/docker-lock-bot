@@ -16,6 +16,11 @@ function should_commit() {
     git diff "${branch}:${lockfile}" "${lockfile}" 2>/dev/null || echo "DOES NOT EXIST"
 }
 
+function git_config() {
+    git config --global user.email "michaelsethperel@gmail.com"
+    git config --global user.name "Michael Perel"
+}
+
 function main() {
     local token
     local owner
@@ -44,6 +49,7 @@ function main() {
         # branch exists
         if [[ "$(should_commit remotes/origin/${update_branch})" != "" ]]; then
             # should commit
+            git_config
             mv "${lockfile}" ../
             git checkout ${update_branch}
             mv "../${lockfile}" .
@@ -55,6 +61,7 @@ function main() {
         # branch does not exit
         if [[ "$(should_commit "${default_branch}")" != "" ]]; then
             # should commit
+            git_config
             git checkout -b "${update_branch}"
             git add "${lockfile}"
             git commit -m "Updated Lockfile"
