@@ -1,51 +1,67 @@
 #!/usr/bin/env bash
 
-set -eou pipefail
+set -euo pipefail
 
-repo="${1}"
-owner="${2}"
-token="${3}"
-tmp_dir="${4}"
-default_branch="${5}"
-pr_branch="remotes/origin/${6}"
-lockfile="${7}"
+update_branch="add-docker-lock"
+lockfile="docker-lock.json"
 
-cd "./${tmp_dir}"
+function should_commit() {
+    local branch
 
-# https://developer.github.com/apps/building-github-apps/authenticating-with-github-apps/
-git clone "https://x-access-token:${token}@github.com/${owner}/${repo}.git"
-cd "${repo}"
+    branch="${1}"
 
-docker lock generate
+    # if no diff -> ""
+    # if diff -> "string with diff"
+    # if file does not exist -> "DOES NOT EXIST"
+    git diff "${branch}:${lockfile}" "${lockfile}" 2>/dev/null || echo "DOES NOT EXIST"
+}
 
-cat "${lockfile}"
+function main() {
+    local token
+    local owner
+    local repo
+    local default_branch
 
-should_commit=""
+    token="${1}"
+    owner="${2}"
+    repo="${3}"
+    default_branch="${4}"
 
-# check if PR branch exists
-pr_branch_exists="$(git branch -a | tr -d " " | grep -e "^${pr_branch}$" || echo "")"
+    local tmp_dir
+    tmp_dir="$(mktemp -d -t tmp-XXXXXXXXXXXXXXX)"
+    trap "rm -rf ${tmp_dir}" EXIT
 
-if [[ "${pr_branch_exists}" != "" ]]; then
-    printf "PR branch exists\n"
+    cd "${tmp_dir}"
+    git clone "https://x-access-token:${token}@github.com/${owner}/${repo}.git"
+    cd "${repo}"
 
-    # lockfile does not exist on PR branch -> "DOES NOT EXIST"
-    # lockfile exists -> git diff's output (could be "")
-    should_commit=$(git diff "${pr_branch}:${lockfile}" "${lockfile}" 2>/dev/null || echo "DOES NOT EXIST")
-    printf "diff:\n"
-    set +e
-    git diff "${pr_branch}:${lockfile}" "${lockfile}"
-    set -e
-else
-    printf "PR branch does not exist\n"
+    docker lock generate
 
-    # lockfile does not exist on default branch -> "DOES NOT EXIST"
-    # lockfile exists -> git diff's output (could be "")
-    should_commit=$(git diff "${default_branch}:${lockfile}" "${lockfile}" 2>/dev/null || echo "DOES NOT EXIST")
-fi
+    local update_branch_exists
+    update_branch_exists="$(git branch -a | tr -d " " | grep -e "^remotes/origin/${update_branch}$" || echo "")"
 
-mv "${lockfile}" ../
+    if [[ "${update_branch_exists}" != "" ]]; then
+        # branch exists
+        if [[ "$(should_commit remotes/origin/${update_branch})" != "" ]]; then
+            # should commit
+            mv "${lockfile}" ../
+            git checkout ${update_branch}
+            mv "../${lockfile}" .
+            git add "${lockfile}"
+            git commit -m "Updated Lockfile"
+            git push
+        fi
+    else
+        # branch does not exit
+        if [[ "$(should_commit "${default_branch}")" != "" ]]; then
+            # should commit
+            git checkout -b "${update_branch}"
+            git add "${lockfile}"
+            git commit -m "Updated Lockfile"
+            git push --set-upstream origin "${update_branch}"
+            git push
+        fi
+    fi
+}
 
-if [[ "${should_commit}" != "" ]]; then
-    exit 0
-fi
-exit 246
+main "${@}"
