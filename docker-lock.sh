@@ -59,7 +59,6 @@ function main() {
             git add "${lockfile}"
             git commit -m "Updated Lockfile"
             git push --set-upstream origin "${update_branch}"
-            git push
         fi
     fi
 }
