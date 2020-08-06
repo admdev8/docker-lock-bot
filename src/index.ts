@@ -3,7 +3,7 @@ import * as child from 'child_process'
 
 // @ts-ignore
 import createScheduler from 'probot-scheduler'
-import { Application, Context } from 'probot' // eslint-disable-line no-unused-vars
+import { Application, Context, Octokit } from 'probot' // eslint-disable-line no-unused-vars
 
 import { v4 as uuidv4 } from 'uuid'
 
@@ -50,8 +50,8 @@ async function deleteBranch (context: Context, owner: string, repo: string, upda
   })
 }
 
-async function createPR (context: Context, owner: string, repo: string, defaultBranch: string, updateBranch: string) {
-  await context.github.pulls.create({
+async function createPR (context: Context, owner: string, repo: string, defaultBranch: string, updateBranch: string): Promise<Octokit.Response<Octokit.PullsCreateResponse>> {
+  const resp = context.github.pulls.create({
     owner: owner,
     repo: repo,
     title: '🐳🔐🤖',
@@ -60,6 +60,8 @@ async function createPR (context: Context, owner: string, repo: string, defaultB
     base: defaultBranch,
     maintainer_can_modify: true
   })
+
+  return resp
 }
 
 async function PRExists (context: Context, owner: string, repo: string, defaultBranch: string, updateBranch: string): Promise<boolean> {
@@ -117,8 +119,8 @@ export = (app: Application) => {
 
     if (!await PRExists(context, owner, repo, defaultBranch, UPDATE_BRANCH)) {
       try {
-        await createPR(context, owner, repo, defaultBranch, UPDATE_BRANCH)
-        app.log(traceIdentifier, owner, repo, 'created PR')
+        const pr = await createPR(context, owner, repo, defaultBranch, UPDATE_BRANCH)
+        app.log(traceIdentifier, owner, repo, 'created PR', pr)
       } catch (e) {
         app.log(traceIdentifier, owner, repo, e)
       }
