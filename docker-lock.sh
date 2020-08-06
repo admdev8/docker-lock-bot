@@ -51,21 +51,23 @@ function main() {
             # should commit
             git_config
             mv "${lockfile}" ../
-            git checkout ${update_branch}
+            git checkout ${update_branch} >&2
             mv "../${lockfile}" .
             git add "${lockfile}"
-            git commit -m "Updated Lockfile"
-            git push
+            git commit -m "Updated Lockfile" >&2
+            git push >&2
+            printf "true"
         fi
     else
         # branch does not exit
         if [[ "$(should_commit "${default_branch}")" != "" ]]; then
             # should commit
             git_config
-            git checkout -b "${update_branch}"
+            git checkout -b "${update_branch}" >&2
             git add "${lockfile}"
-            git commit -m "Updated Lockfile"
-            git push --set-upstream origin "${update_branch}"
+            git commit -m "Updated Lockfile" >&2
+            git push --set-upstream origin "${update_branch}" >&2
+            printf "true"
         fi
     fi
 }

@@ -62,6 +62,18 @@ async function createPR (context: Context, owner: string, repo: string, defaultB
   })
 }
 
+async function PRExists (context: Context, owner: string, repo: string, defaultBranch: string, updateBranch: string): Promise<boolean> {
+  const pulls = await context.github.pulls.list({
+    owner: owner,
+    repo: repo,
+    state: 'open',
+    head: `${owner}:${updateBranch}`,
+    base: defaultBranch
+  })
+
+  return pulls.data.length !== 0
+}
+
 export = (app: Application) => {
   createScheduler(app, {
     delay: SCHEDULER_DELAY,
@@ -87,21 +99,31 @@ export = (app: Application) => {
 
     app.log(traceIdentifier, owner, repo, 'Beginning docker lock')
 
+    let commitOccurred = false
     try {
       const { stdout, stderr } = await dockerLock(token, owner, repo, defaultBranch)
-      app.log(traceIdentifier, owner, repo, stdout, stderr)
-      app.log(traceIdentifier, owner, repo, 'Finished docker lock')
+      app.log(traceIdentifier, owner, repo, stdout, stderr, 'Finished docker lock')
+      commitOccurred = stdout === 'true'
     } catch (e) {
       app.log(traceIdentifier, owner, repo, 'docker-lock failed', e)
       return
     }
 
-    try {
-      await createPR(context, owner, repo, defaultBranch, UPDATE_BRANCH)
-      app.log(traceIdentifier, owner, repo, 'created PR')
-    } catch (e) {
-      // PR already exists or branch does not exist, so no PR shold be made
-      app.log(traceIdentifier, owner, repo, e)
+    if (!commitOccurred) {
+      // TODO: A more robust method would be to check for a diff, rather than if a commit occured.
+      app.log(traceIdentifier, owner, repo, 'no commit occurred')
+      return
+    }
+
+    if (!await PRExists(context, owner, repo, defaultBranch, UPDATE_BRANCH)) {
+      try {
+        await createPR(context, owner, repo, defaultBranch, UPDATE_BRANCH)
+        app.log(traceIdentifier, owner, repo, 'created PR')
+      } catch (e) {
+        app.log(traceIdentifier, owner, repo, e)
+      }
+    } else {
+      app.log(traceIdentifier, owner, repo, 'PR already exists')
     }
   })
 }
