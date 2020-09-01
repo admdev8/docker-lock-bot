@@ -4,19 +4,19 @@
 			{
 				"name": "node",
 				"tag": "lts",
-				"digest": "8fde73231b6a04a4d54887de21e9ae65d663fb0e7672b64bca15b2b0e36df622"
+				"digest": "099346a8e9c861b406c9bbb1f109125c7263868e5447cc57d6d564e1fec8a5cf"
 			}
 		],
 		"Dockerfile": [
 			{
 				"name": "node",
 				"tag": "lts",
-				"digest": "8fde73231b6a04a4d54887de21e9ae65d663fb0e7672b64bca15b2b0e36df622"
+				"digest": "099346a8e9c861b406c9bbb1f109125c7263868e5447cc57d6d564e1fec8a5cf"
 			},
 			{
 				"name": "node",
 				"tag": "lts",
-				"digest": "8fde73231b6a04a4d54887de21e9ae65d663fb0e7672b64bca15b2b0e36df622"
+				"digest": "099346a8e9c861b406c9bbb1f109125c7263868e5447cc57d6d564e1fec8a5cf"
 			}
 		]
 	},
