@@ -4,12 +4,12 @@
 			{
 				"name": "node",
 				"tag": "lts",
-				"digest": "399ffc13d99b32c3a4450949fb3142b991dc4645933e9b098634a3216a4279f2"
+				"digest": "c71e2331f987572527b22539ce9711ad011e43291ba181b677e452a16dbf1661"
 			},
 			{
 				"name": "node",
 				"tag": "lts",
-				"digest": "399ffc13d99b32c3a4450949fb3142b991dc4645933e9b098634a3216a4279f2"
+				"digest": "c71e2331f987572527b22539ce9711ad011e43291ba181b677e452a16dbf1661"
 			}
 		]
 	}
