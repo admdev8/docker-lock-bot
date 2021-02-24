@@ -1,16 +1,16 @@
 {
-	"dockerfiles": {
-		"Dockerfile": [
-			{
-				"name": "node",
-				"tag": "lts",
-				"digest": "fa48e06848cb619c3dcc6a9c34b13473c89c0ef52b16d275a7ad3d3aef656fd3"
-			},
-			{
-				"name": "node",
-				"tag": "lts",
-				"digest": "fa48e06848cb619c3dcc6a9c34b13473c89c0ef52b16d275a7ad3d3aef656fd3"
-			}
-		]
-	}
+  "dockerfiles": {
+    "Dockerfile": [
+      {
+        "name": "node",
+        "tag": "lts",
+        "digest": "fa48e06848cb619c3dcc6a9c34b13473c89c0ef52b16d275a7ad3d3aef656fd3"
+      },
+      {
+        "name": "node",
+        "tag": "lts",
+        "digest": "fa48e06848cb619c3dcc6a9c34b13473c89c0ef52b16d275a7ad3d3aef656fd3"
+      }
+    ]
+  }
 }
